@@ -9,6 +9,18 @@ OpenAI's [DALL-E](https://openai.com/blog/dall-e/), based on [DALL-E Mini](https
 https://user-images.githubusercontent.com/6180201/136710500-8bb01b4c-5741-4007-a8ea-e18ba5895649.mp4
 
 
+## Changes in this fork:
+This is a WIP based on an older version of this repo, if I have time I will update it to the current version. 
+
+Added app\_8GB\_VRAM.py to the backend folder. 
+
+I needed to run with ` XLA_FLAGS='--xla_gpu_force_compilation_parallelism=1 --xla_gpu_strict_conv_algorithm_picker=false'`
+as well as `XLA_PYTHON_CLIENT_ALLOCATOR=platform`
+
+This was tested on a 8GB RTX 3060ti - it fits the f16 mega version by unloading and loading VQGAN when generating images. 
+It is slower, but not too much, since the model is only downloaded once. 
+
+I have also removed the wandb call in this version, but that shouldn't matter. 
 ## Fast usage
 
 You can tinker with the DALL-E playground using a Github-hosted frontend. Follow these steps:
