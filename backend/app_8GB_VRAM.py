@@ -35,6 +35,15 @@ from flax.jax_utils import replicate
 
 from functools import partial
 
+model, params_cpu = DalleBart.from_pretrained(
+        DALLE_MODEL, revision=DALLE_COMMIT_ID, dtype=jnp.float16, _do_init=False)
+
+processor = DalleBartProcessor.from_pretrained(DALLE_MODEL, revision=DALLE_COMMIT_ID,dtype=jnp.float16)
+
+vqgan, vqgan_params_cpu = VQModel.from_pretrained(VQGAN_REPO, revision=VQGAN_COMMIT_ID, _do_init=False)
+
+
+
 # model inference
 @partial(jax.pmap, axis_name="batch", static_broadcasted_argnums=(3, 4, 5, 6))
 def p_generate(
@@ -63,7 +72,6 @@ key = jax.random.PRNGKey(seed)
 
 from dalle_mini import DalleBartProcessor
 
-processor = DalleBartProcessor.from_pretrained(DALLE_MODEL, revision=DALLE_COMMIT_ID,dtype=jnp.float16)
 
 prompts = ["sunset over a lake in the mountains", "the Eiffel tower landing on the moon"]
 tokenized_prompts = processor(prompts)
@@ -87,15 +95,9 @@ def tokenize_prompt(prompt: str):
   return replicate(tokenized_prompt)
 
 def generate_images(prompt:str, num_predictions: int):
-  
-  global model 
-  global vqgan
-  tokenized_prompt = tokenize_prompt(prompt)
-  # Load dalle-min
-  model, params = DalleBart.from_pretrained(
-          DALLE_MODEL, revision=DALLE_COMMIT_ID, dtype=jnp.float16, _do_init=False)
 
-  params = replicate(params)
+  tokenized_prompt = tokenize_prompt(prompt)
+  params = replicate(params_cpu)
   
   # create a random key
   seed = random.randint(0, 2**32 - 1)
@@ -116,10 +118,9 @@ def generate_images(prompt:str, num_predictions: int):
       encoded_images = encoded_images.sequences[..., 1:]
       r_imgs.append(np.array(encoded_images))
 
-  del params  # This is enough to clear memory 
+  del params 
 
-  vqgan, vqgan_params = VQModel.from_pretrained(VQGAN_REPO, revision=VQGAN_COMMIT_ID, _do_init=False)
-  vqgan_params = replicate(vqgan_params) 
+  vqgan_params = replicate(vqgan_params_cpu) 
   
   for encoded_images in r_imgs:
       # decode images
@@ -128,11 +129,10 @@ def generate_images(prompt:str, num_predictions: int):
       for img in decoded_images:
            images.append(Image.fromarray(np.asarray(img * 255, dtype=np.uint8)))
 
-  del model #GC should get these, but just in case 
-  del vqgan 
   del vqgan_params 
 
   return images
+
 
 @app.route('/dalle', methods=['POST'])
 @cross_origin()
